@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Baku Speech
+Comment=bspeech - An experiment
+TryExec=bspeech
+Exec=bspeech
+Icon=/usr/share/pixmaps/bspeech/bspeech.png
+Type=Application
+Categories=GNOME;GTK;Utility;TerminalEmulator;
+StartupNotify=true
+X-GNOME-Autostart-enabled=false
