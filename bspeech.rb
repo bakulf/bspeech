@@ -5,6 +5,7 @@ begin
   require "gtk2"
   @@withUI = true
 rescue LoadError => e
+  puts "No UI will be used"
 end
 
 require 'tempfile'
@@ -20,7 +21,8 @@ class BSpeech
   Sleeping   = 0
   Recording  = 1
   Processing = 2
-  Ending     = 3
+  Ready      = 3
+  Ending     = 4
 
   ErrorJSON  = -1
   ErrorData  = -2
@@ -36,99 +38,99 @@ class BSpeech
   def run
     @state = Sleeping
 
-    @thr = Thread.new do
-      cmd = "rec -r #{RATE} -q -b 16 #{@filename} silence 1 0.1 5% 1 1.0 5% channels 1"
-      puts "Executing '#{cmd}`"
-
-      @state = Recording
-      IO.popen cmd do |data|
-        @pid = data.pid
-      end
-
-      return if @pid == 0
-
-      @state = Processing
-      cmd = "curl -s -X POST -H \"Content-Type:audio/x-flac; rate=#{RATE}\" -T #{@filename} " +
-            "\"https://www.google.com/speech-api/v1/recognize?xjerr=1&client=chromium&lang=#{@settings['language']}&maxresults=10&pfilter=0\""
-
-      json = ''
-      IO.popen cmd do |data|
-        @pid = data.pid
-        json += data.read
-      end
-      @pid = 0
-
-      File.unlink @filename
-
-      data = JSON.parse json
-      if not data.include? 'hypotheses'
-        @state = ErrorJSON
-        return
-      end
-
-      @text = nil
-      if not data['hypotheses'].empty?
-        @text = data['hypotheses'][0]['utterance']
-      end
-
-      if @text.nil?
-        @state = ErrorData
-        return
-      end
-
-      @state = Ending
-      puts "Text: #{@text}"
-    end
-
     if @@withUI
+      @thr = Thread.new do
+        runInternal
+      end
+
       @n = Notification.new(@settings['markup'])
-    else
-      @n = NotificationNoUI.new
-    end
+      prevState = nil
+      startTime = Time.now
 
-    @prevState = nil
-    @startTime = Time.now
-
-    if @@withUI
       GLib::Timeout.add 200 do
-        timeout
+        if @state == Recording && Time.now - startTime > TIMEOUT
+          quit "Something wrong is happening. Sorry!"
+        end
+
+        if prevState != @state
+          if @state == Sleeping
+            @n.show "Wait..."
+          elsif @state == Recording
+            @n.show "Recording"
+          elsif @state == Processing
+            @n.show "Processing"
+          elsif @state == ErrorJSON
+            quit  "JSON error"
+          elsif @state == ErrorData
+            quit  "Sorry... can you repeat?"
+          elsif @state == Ready
+            @n.show @text
+          elsif @state == Ending
+            @n.quit @text
+          end
+
+          prevState = @state
+        end
+        true
       end
+
+      Gtk.main
     else
-      while true do
-        timeout
-        sleep 0.2
-      end
+      runInternal
     end
+  end
+
+  def runInternal
+    cmd = "rec -r #{RATE} -q -b 16 #{@filename} silence 1 0.1 5% 1 1.0 5% channels 1"
+    puts "Executing '#{cmd}`"
+
+    @state = Recording
+    IO.popen cmd do |data|
+      @pid = data.pid
+    end
+
+    return if @pid == 0
+
+    puts "Processing..."
+    @state = Processing
+    cmd = "curl -s -X POST -H \"Content-Type:audio/x-flac; rate=#{RATE}\" -T #{@filename} " +
+          "\"https://www.google.com/speech-api/v1/recognize?xjerr=1&client=chromium&lang=#{@settings['language']}&maxresults=10&pfilter=0\""
+
+    json = ''
+    IO.popen cmd do |data|
+      @pid = data.pid
+      json += data.read
+    end
+    @pid = 0
+
+    File.unlink @filename
+
+    data = JSON.parse json
+    if not data.include? 'hypotheses'
+      puts "Error in the JSON doc"
+      @state = ErrorJSON
+      return
+    end
+
+    @text = nil
+    if not data['hypotheses'].empty?
+      @text = data['hypotheses'][0]['utterance']
+    end
+
+    if @text.nil?
+      puts "What?"
+      @state = ErrorData
+      return
+    end
+
+    @state = Ready
+    puts "Text: #{@text}"
+
+    processingText
   end
 
 private
-  def timeout
-    if @state == Recording && Time.now - @startTime > TIMEOUT
-      quit "Something wrong is happening. Sorry!"
-    end
-
-    if @prevState != @state
-      if @state == Sleeping
-        @n.show "Wait..."
-      elsif @state == Recording
-        @n.show "Recording"
-      elsif @state == Processing
-        @n.show "Processing"
-      elsif @state == ErrorJSON
-        quit  "JSON error"
-      elsif @state == ErrorData
-        quit  "Sorry... can you repeat?"
-      elsif @state == Ending
-        processingText
-      end
-
-      @prevState = @state
-    end
-    true
-  end
-
   def processingText
-    @n.show @text
     texts = @text.split
 
     msg = ''
@@ -148,11 +150,12 @@ private
     end
 
     if msg.empty?
-      quit @text + "\ndoesn't match any module."
-      return
+      @text += "\ndoesn't match any module."
+    else
+      @text = msg
     end
 
-    quit msg
+    @state = Ending
   end
 
   def quit(msg)
@@ -230,18 +233,6 @@ private
   end
 end
 
-# Notification class without GTK
-class NotificationNoUI
-  def show(what)
-    puts what
-  end
-
-  def quit(what)
-    puts what
-    exit
-  end
-end
-
 # Notification class
 class Notification
   TIMEOUT = 100
@@ -302,4 +293,3 @@ end
 
 a = BSpeech.new
 a.run
-Gtk.main
