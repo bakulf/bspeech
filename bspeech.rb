@@ -4,7 +4,7 @@
 begin
   require "gtk2"
   @@withUI = true
-rescue
+rescue LoadError => e
 end
 
 require 'tempfile'
@@ -14,7 +14,6 @@ require "yaml"
 
 class BSpeech
   RATE = 16000
-  LANG = 'it'
   TIMEOUT = 10
 
   # states
@@ -50,7 +49,7 @@ class BSpeech
 
       @state = Processing
       cmd = "curl -s -X POST -H \"Content-Type:audio/x-flac; rate=#{RATE}\" -T #{@filename} " +
-            "\"https://www.google.com/speech-api/v1/recognize?xjerr=1&client=chromium&lang=#{LANG}&maxresults=10&pfilter=0\""
+            "\"https://www.google.com/speech-api/v1/recognize?xjerr=1&client=chromium&lang=#{@settings['language']}&maxresults=10&pfilter=0\""
 
       json = ''
       IO.popen cmd do |data|

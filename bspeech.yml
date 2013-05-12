@@ -1,5 +1,6 @@
 bspeech:
   markup: <span font_desc="Purisa 30" foreground="red">%s</span>
+  language: it
   modules:
     OpenApp:
       terminale: bterm
