@@ -1,6 +1,12 @@
 #!/usr/bin/env ruby
 
-require "gtk2"
+@@withUI = false
+begin
+  require "gtk2"
+  @@withUI = true
+rescue
+end
+
 require 'tempfile'
 require 'rubygems'
 require 'json/pure'
@@ -75,37 +81,53 @@ class BSpeech
       puts "Text: #{@text}"
     end
 
-    @n = Notification.new( @settings['markup'] )
-    prevState = nil
-    startTime = Time.now
+    if @@withUI
+      @n = Notification.new(@settings['markup'])
+    else
+      @n = NotificationNoUI.new
+    end
 
-    GLib::Timeout.add 200 do
-      if @state == Recording && Time.now - startTime > TIMEOUT
-        quit "Something wrong is happening. Sorry!"
+    @prevState = nil
+    @startTime = Time.now
+
+    if @@withUI
+      GLib::Timeout.add 200 do
+        timeout
       end
-
-      if prevState != @state
-        if @state == Sleeping
-          @n.show "Wait..."
-        elsif @state == Recording
-          @n.show "Recording"
-        elsif @state == Processing
-          @n.show "Processing"
-        elsif @state == ErrorJSON
-          quit  "JSON error"
-        elsif @state == ErrorData
-          quit  "Sorry... can you repeat?"
-        elsif @state == Ending
-          processingText
-        end
-
-        prevState = @state
+    else
+      while true do
+        timeout
+        sleep 0.2
       end
-      true
     end
   end
 
 private
+  def timeout
+    if @state == Recording && Time.now - @startTime > TIMEOUT
+      quit "Something wrong is happening. Sorry!"
+    end
+
+    if @prevState != @state
+      if @state == Sleeping
+        @n.show "Wait..."
+      elsif @state == Recording
+        @n.show "Recording"
+      elsif @state == Processing
+        @n.show "Processing"
+      elsif @state == ErrorJSON
+        quit  "JSON error"
+      elsif @state == ErrorData
+        quit  "Sorry... can you repeat?"
+      elsif @state == Ending
+        processingText
+      end
+
+      @prevState = @state
+    end
+    true
+  end
+
   def processingText
     @n.show @text
     texts = @text.split
@@ -206,6 +228,18 @@ private
 
     obj = eval data
     @modules.push obj
+  end
+end
+
+# Notification class without GTK
+class NotificationNoUI
+  def show(what)
+    puts what
+  end
+
+  def quit(what)
+    puts what
+    exit
   end
 end
 
