@@ -137,13 +137,13 @@ private
     @modules.each do |m|
       name = m.name
 
-      if m.yours? texts
-        config = nil
-        if @settings.include? 'modules' and
-           @settings['modules'].include? name
-          config = @settings['modules'][name]
-        end
+      config = nil
+      if @settings.include? 'modules' and
+         @settings['modules'].include? name
+        config = @settings['modules'][name]
+      end
 
+      if m.yours? config, texts
         msg += m.run config, texts
         break
       end
@@ -199,7 +199,7 @@ private
       Dir.mkdir dirname
       f =File.open dirname + '/example.rb', 'w'
       f.write "class Example\n  def name\n    \"Example\"\n  end\n" +
-              "  def yours?(something)\n    true" +
+              "  def yours?(config, something)\n    true" +
               "\n  end\n\n  def run(config, something)\n    # ...\n    \"Hello world!\"" +
               "\n  end\nend\n\n" +
               "# Here, create our object and leave it as return value:\n" +

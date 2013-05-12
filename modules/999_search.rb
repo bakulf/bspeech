@@ -5,7 +5,7 @@ class Search
     "Search"
   end
 
-  def yours?(something)
+  def yours?(config, something)
     # yeah... this is the last one.
     true
   end
