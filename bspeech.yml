@@ -1,0 +1,22 @@
+bspeech:
+  markup: <span font_desc="Purisa 30" foreground="red">%s</span>
+  modules:
+    OpenApp:
+      terminale: bterm
+      web: firefox
+      firefox: firefox
+      browser: firefox
+      www: firefox
+      posta: thunderbird
+      mail: thunderbird
+      email: thunderbird
+    Search:
+      words:
+       cerca: https://duckduckgo.com/?q=
+       trova: https://duckduckgo.com/?q=
+       Google: https://www.google.com/search?q=
+       YouTube: https://www.youtube.com/results?search_query=
+       wikipedia: https://en.wikipedia.org/wiki/Special:Search/
+       wiki: https://en.wikipedia.org/wiki/Special:Search/
+      app: firefox
+      fallbackUrl: https://duckduckgo.com/?q=
