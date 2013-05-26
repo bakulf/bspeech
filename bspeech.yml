@@ -16,6 +16,7 @@ bspeech:
         posta: thunderbird
         mail: thunderbird
         email: thunderbird
+        love: love '/home/baku/Games/Not Tetris 2.love'
 
     Search:
       words:
@@ -32,3 +33,8 @@ bspeech:
       app: firefox
       mapWords: [ "mappa", "maps", "map" ]
       mapUrl: https://maps.google.com/?q=
+
+    Memo:
+      memoFile: /tmp/memo.txt
+      memoAdd: [ "memorizza", "ricorda", "salva" ]
+      memoPlay: [ "memo", "dimmi" ]
