@@ -1,40 +1,40 @@
 bspeech:
-
-  markup: <span font_desc="Purisa 30" foreground="red">%s</span>
   language: it
+  url: "http://192.168.1.110"
 
   modules:
+    stop:
+      words: [ "ferma", "stop", "basta", "alt", "fermati", "fine" ]
+      post: '__VALUE__'
+      value: 0
 
-    OpenApp:
-      magicWords: [ "open", "apri", "esegui", "run" ]
-      apps:
-        terminale: bterm
-        web: firefox
-        firefox: firefox
-        browser: firefox
-        www: firefox
-        posta: thunderbird
-        mail: thunderbird
-        email: thunderbird
-        love: love '/home/baku/Games/Not Tetris 2.love'
+    start:
+      words: [ "inizia", "parti", "via", "inizio" ]
+      post: '__VALUE__'
+      value: 42
 
-    Search:
-      words:
-       cerca: https://duckduckgo.com/?q=
-       trova: https://duckduckgo.com/?q=
-       Google: https://www.google.com/search?q=
-       YouTube: https://www.youtube.com/results?search_query=
-       wikipedia: https://en.wikipedia.org/wiki/Special:Search/
-       wiki: https://en.wikipedia.org/wiki/Special:Search/
-      app: firefox
-      fallbackUrl: https://duckduckgo.com/?q=
+    pulse:
+      words: [ "pulsa", "vibra" ]
+      cmd: '@@value = 42 if @@value < 10'
+      post: '{"type": "cycle", "value": {"type": "concat", "values": [{"type":"end", "timeout":0.5, "value": __VALUE__}, {"type":"end", "timeout":0.5}]}}'
 
-    Maps:
-      app: firefox
-      mapWords: [ "mappa", "maps", "map" ]
-      mapUrl: https://maps.google.com/?q=
+    increase:
+      words: [ "aumenta", "di più", "più", "ancora" ]
+      cmd: '@@value += 10; @@value = 0 if @@value < 0; @@value = 128 if @@value > 128'
 
-    Memo:
-      memoFile: /tmp/memo.txt
-      memoAdd: [ "memorizza", "ricorda", "salva" ]
-      memoPlay: [ "memo", "dimmi" ]
+    decrease:
+      words: [ "diminuisci", "meno", "piano" ]
+      cmd: '@@value -= 10; @@value = 0 if @@value < 0; @@value = 128 if @@value > 128'
+
+    strong:
+      words: [ "forte", "fortissimo" ]
+      cmd: '@@value = 128'
+
+    soft:
+      words: [ "piano" ]
+      cmd: '@@value = 42'
+
+    honda:
+      words: [ "Honda", "onda" ]
+      post: '{"type": "cycle", "value": {"type": "range", "min": 0, "max": __VALUE__ }}'
+
