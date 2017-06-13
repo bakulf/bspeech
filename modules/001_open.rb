@@ -4,8 +4,14 @@ class OpenApp
   end
 
   def yours?(config, something)
-    matchs = [ "open", "apri", "esegui", "run" ]
-    return config['magicWords'].include? something[0]
+    if config.nil? or
+       not config.include? 'words' or
+       not config.include? 'apps' then
+      puts " * Add a modules/OpenApp/words and modules/OpenApp/apps keywords in the config file for this module."
+      return false
+    end
+
+    return config['words'].include? something[0]
   end
 
   def run(config, something)

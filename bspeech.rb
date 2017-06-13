@@ -1,13 +1,5 @@
 #!/usr/bin/env ruby
 
-@@withUI = false
-begin
-  require "gtk2"
-  @@withUI = true
-rescue LoadError => e
-  puts "No UI will be used"
-end
-
 require 'tempfile'
 require 'rubygems'
 require 'json/pure'
@@ -28,6 +20,14 @@ class BSpeech
   ErrorData  = -2
 
   def initialize
+    @withUI = false
+    begin
+      require "gtk2"
+      @withUI = true
+    rescue LoadError => e
+      puts "No UI will be used"
+    end
+
     readConfig
     loadModules
 
@@ -38,7 +38,7 @@ class BSpeech
   def run
     @state = Sleeping
 
-    if @@withUI
+    if @withUI
       @thr = Thread.new do
         runInternal
       end
@@ -80,49 +80,95 @@ class BSpeech
     end
   end
 
+  def doMagic
+    t1 = Thread.new do
+      cmd = "curl -s \"https://www.google.com/speech-api/full-duplex/v1/down?pair=12345678901234567\""
+
+      json = ''
+      IO.popen cmd do |data|
+        json += data.read
+      end
+
+      Thread.current["json"] = json
+      Thread.current["done"] = true
+    end
+
+    t2 = Thread.new do
+      cmd = "curl -s -X POST \"https://www.google.com/speech-api/full-duplex/v1/up?lang=#{@settings['language']}&lm=dictation&client=chromium&pair=12345678901234567&key=#{@settings['key']}\" --header \"Transfer-Encoding: chunked\" --header \"Content-Type: audio/x-flac; rate=#{RATE}\" --data-binary @#{@filename}"
+
+      json = ''
+      IO.popen cmd do |data|
+        json += data.read
+      end
+
+      Thread.current["json"] = json
+      Thread.current["done"] = true
+    end
+
+    while 1 do
+      if t1["done"] and t2["done"]
+        return t1["json"]
+      end
+    end
+
+  end
+
   def runInternal
-    cmd = "rec -r #{RATE} -q -b 16 #{@filename} silence 1 0.1 5% 1 1.0 5% channels 1"
+    cmd = "rec -r #{RATE} -b 16 #{@filename} silence 1 0.1 5% 1 1.0 5% channels 1"
     puts "Executing '#{cmd}`"
 
     @state = Recording
-    IO.popen cmd do |data|
-      @pid = data.pid
-    end
-
-    return if @pid == 0
+    IO.popen cmd do end
 
     puts "Processing..."
     @state = Processing
-    cmd = "curl -s -X POST -H \"Content-Type:audio/x-flac; rate=#{RATE}\" -T #{@filename} " +
-          "\"https://www.google.com/speech-api/v1/recognize?xjerr=1&client=chromium&lang=#{@settings['language']}&maxresults=10&pfilter=0\""
-
-    json = ''
-    IO.popen cmd do |data|
-      @pid = data.pid
-      json += data.read
-    end
-    @pid = 0
+    json = doMagic
 
     File.unlink @filename
 
-    data = JSON.parse json
-    if not data.include? 'hypotheses'
-      puts "Error in the JSON doc"
-      @state = ErrorJSON
-      return
+    results = []
+    parts = json.split "\n"
+    parts.each do |part|
+      begin
+        data = JSON.parse part
+      rescue
+        next
+      end
+
+      if not data.include? 'result'
+        puts "Error in the JSON doc"
+        @state = ErrorJSON
+        return
+      end
+
+      next if data['result'].empty?
+
+      results.concat(data['result'])
     end
 
-    @text = nil
-    if not data['hypotheses'].empty?
-      @text = data['hypotheses'][0]['utterance']
+    confidence = 0
+    text = nil
+    results.each do |result|
+      next if not result.include? "alternative"
+
+      result['alternative'].each do |alternative|
+        next if not alternative.include? "confidence"
+
+        puts "Confidence #{alternative['confidence']} - Trascription: #{alternative['transcript']}"
+        next if alternative['confidence'] < confidence
+
+        confidence = alternative['confidence']
+        text = alternative['transcript']
+      end
     end
 
-    if @text.nil?
+    if text.nil?
       puts "What?"
       @state = ErrorData
       return
     end
 
+    @text = text
     @state = Ready
     puts "Text: #{@text}"
 
@@ -131,7 +177,7 @@ class BSpeech
 
 private
   def processingText
-    texts = @text.split
+    texts = @text.downcase.split
 
     msg = ''
     @modules.each do |m|
@@ -159,11 +205,6 @@ private
   end
 
   def quit(msg)
-    if @pid > 0
-      Process.kill "TERM", @pid
-      @pid = 0
-    end
-
     @n.quit msg
   end
 
@@ -176,6 +217,8 @@ private
 
       file.write "bspeech:\n"
       file.write "  markup: <span font_desc=\"Purisa 30\" foreground=\"red\">%s</span>\n"
+      file.write "  key: something here\n"
+      file.write "  lang: en-EN\n"
       file.close
     end
 

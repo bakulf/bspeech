@@ -6,7 +6,11 @@ class Search
   end
 
   def yours?(config, something)
-    # yeah... this is the last one.
+    if config.nil? or not config.include? 'fallbackUrl' or not config.include? 'words' then
+      puts " * Add a modules/fallbackUrl and modules/words keywords in the config file for the 999_search module"
+      return false
+    end
+
     true
   end
 

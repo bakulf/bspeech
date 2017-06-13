@@ -6,18 +6,21 @@ class Maps
   end
 
   def yours?(config, something)
-    # yeah... this is the last one.
-    if config['mapWords'].include? something[0]
-      return true
+    if config.nil? or
+       not config.include? 'words' or
+       not config.include? 'app' or
+       not config.include? 'url' then
+      puts " * Add modules/Maps/words, modules/Maps/url, modules/Maps/app keywords in the config file."
+      return false
     end
 
-    false
+    return config['words'].include? something[0]
   end
 
   def run(config, something)
     url = nil
-    if config['mapWords'].include? something[0]
-      url = config['mapUrl']
+    if config['words'].include? something[0]
+      url = config['url']
       something.shift
 
       what = something.join ' '
